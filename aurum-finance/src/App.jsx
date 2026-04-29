@@ -297,7 +297,8 @@ export default function App() {
   const totalIncome   = periodTx.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
   const totalExpenses = Math.abs(periodTx.filter(t=>t.amount<0).reduce((s,t)=>s+t.amount,0));
   const balance       = totalIncome-totalExpenses;
-  const expByCat      = CATEGORIES.reduce((acc,cat)=>{acc[cat]=Math.abs(periodTx.filter(t=>t.category===cat&&t.amount<0).reduce((s,t)=>s+t.amount,0));return acc;},{});
+  const normCat       = c=>CATEGORIES.find(x=>c===x||c.endsWith(' '+x))||c;
+  const expByCat      = CATEGORIES.reduce((acc,cat)=>{acc[cat]=Math.abs(periodTx.filter(t=>normCat(t.category)===cat&&t.amount<0).reduce((s,t)=>s+t.amount,0));return acc;},{});
   const cardBal       = id=>cardCharges.filter(c=>c.cardId===id).reduce((s,c)=>s+c.amount,0);
   const cardPeriodBal = id=>filterCC(cardCharges).filter(c=>c.cardId===id).reduce((s,c)=>s+c.amount,0);
   const totalCCDue    = cards.reduce((s,c)=>s+cardPeriodBal(c.id),0);
