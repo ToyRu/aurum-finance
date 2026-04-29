@@ -210,10 +210,10 @@ export default function App() {
   const [selYear,  setSelYear]  = useState(NOW_YEAR);
   const [selMonth, setSelMonth] = useState(NOW_MONTH);
 
-  const [transactions, setTransactions] = useState([]);
-  const [cards,        setCards]        = useState([]);
+  const [transactions, setTransactions] = useState(SAMPLE_TRANSACTIONS);
+  const [cards,        setCards]        = useState(SAMPLE_CARDS);
   const [cardCharges,  setCardCharges]  = useState([]);
-  const [goals,        setGoals]        = useState([]);
+  const [goals,        setGoals]        = useState(SAMPLE_GOALS);
   const [budgets,      setBudgets]      = useState(INIT_BUDGETS);
   const [stocks,       setStocks]       = useState([
     {id:1,ticker:"AAPL",name:"Apple Inc.",shares:5,avgPrice:170,currentPrice:null,prevPrice:null},
@@ -243,6 +243,9 @@ export default function App() {
   const [editTxItem,   setEditTxItem]   = useState(null); // null or tx object (amount = absolute)
   const [editGoalItem, setEditGoalItem] = useState(null); // null or goal object
   const [editCardItem, setEditCardItem] = useState(null); // null or card object
+  const [recurringPayments, setRecurringPayments] = useState([]);
+  const [showAddRecurring,  setShowAddRecurring]  = useState(false);
+  const [newRecurring, setNewRecurring] = useState({name:"",amount:"",category:"Housing",dayOfMonth:"1",paymentMethod:"cash",cardId:null});
   const chatEndRef = useRef(null);
   useEffect(()=>{ chatEndRef.current?.scrollIntoView({behavior:"smooth"}); },[messages]);
 
@@ -272,13 +275,13 @@ export default function App() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async ()=>{
       try {
-        await setDoc(doc(db,"users",user.uid),{transactions,cards,cardCharges,goals,budgets,stocks},{merge:true});
+        await setDoc(doc(db,"users",user.uid),{transactions,cards,cardCharges,goals,budgets,stocks,recurringPayments},{merge:true});
         setSyncStatus("synced");
       } catch { setSyncStatus("offline"); }
     },1500);
-  },[user,transactions,cards,cardCharges,goals,budgets,stocks]);
+  },[user,transactions,cards,cardCharges,goals,budgets,stocks,recurringPayments]);
 
-  useEffect(()=>{ saveData(); },[transactions,cards,cardCharges,goals,budgets,stocks]);
+  useEffect(()=>{ saveData(); },[transactions,cards,cardCharges,goals,budgets,stocks,recurringPayments]);
 
   // ── PERIOD ──────────────────────────────────────────────────────────────────
   const periodLabel = periodMode==="monthly" ? `${MONTH_FULL[selMonth-1]} ${selYear}` : `${selYear}`;
@@ -323,6 +326,10 @@ export default function App() {
   const addCharge=id=>{ if(!newCharge.desc||!newCharge.amount)return; setCardCharges(prev=>[...prev,{...newCharge,id:Date.now(),cardId:id,amount:parseFloat(newCharge.amount)}]); setNewCharge({date:todayStr(),desc:"",amount:"",category:"Shopping"}); setShowAddCharge(null); };
   const addStock=()=>{ if(!newStock.ticker||!newStock.shares||!newStock.avgPrice)return; setStocks(prev=>[...prev,{id:Date.now(),ticker:newStock.ticker.toUpperCase(),name:newStock.name||newStock.ticker.toUpperCase(),shares:parseFloat(newStock.shares),avgPrice:parseFloat(newStock.avgPrice),currentPrice:null,prevPrice:null}]); setNewStock({ticker:"",name:"",shares:"",avgPrice:""}); setShowAddStock(false); };
   const rmStock=id=>setStocks(prev=>prev.filter(s=>s.id!==id));
+  const addRecurring=()=>{ if(!newRecurring.name||!newRecurring.amount)return; setRecurringPayments(prev=>[...prev,{...newRecurring,id:Date.now(),active:true,amount:parseFloat(newRecurring.amount),dayOfMonth:parseInt(newRecurring.dayOfMonth)||1}]); setNewRecurring({name:"",amount:"",category:"Housing",dayOfMonth:"1",paymentMethod:"cash",cardId:null}); setShowAddRecurring(false); };
+  const deleteRecurring=id=>setRecurringPayments(prev=>prev.filter(r=>r.id!==id));
+  const toggleRecurring=id=>setRecurringPayments(prev=>prev.map(r=>r.id===id?{...r,active:!r.active}:r));
+  const applyRecurring=r=>{ const dateStr=`${NOW_YEAR}-${pad(NOW_MONTH)}-${pad(r.dayOfMonth)}`; const txId=Date.now(); setTransactions(prev=>[...prev,{id:txId,date:dateStr,desc:r.name,amount:-Math.abs(r.amount),type:"expense",category:r.category,paymentMethod:r.paymentMethod,cardId:r.cardId,fromRecurring:true}]); if(r.paymentMethod==="credit"&&r.cardId) setCardCharges(prev=>[...prev,{id:txId+1,cardId:parseInt(r.cardId),date:dateStr,desc:r.name,amount:Math.abs(r.amount),category:r.category,fromTx:true}]); };
 
   // ── EDIT / DELETE ─────────────────────────────────────────────────────────────
   const deleteTx=id=>{ if(!window.confirm("Delete this transaction?"))return; setTransactions(prev=>prev.filter(t=>t.id!==id)); setCardCharges(prev=>prev.filter(c=>!(c.fromTx===true&&c.id===id+1))); };
@@ -606,6 +613,49 @@ export default function App() {
                   {newTx.paymentMethod==="credit"&&newTx.cardId&&<div style={{marginTop:"6px",fontSize:"11px",color:C.gold,background:`${C.gold}11`,padding:"5px 10px",borderRadius:"5px"}}>💳 Auto-added to {cards.find(c=>c.id==newTx.cardId)?.name}</div>}
                 </div>
               )}
+              {/* ── RECURRING PAYMENTS ── */}
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:"8px",padding:"13px",marginBottom:"14px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                  <div style={{...secT,margin:0}}>🔄 Recurring · Monthly</div>
+                  <button style={btnS()} onClick={()=>setShowAddRecurring(!showAddRecurring)}>+ Add</button>
+                </div>
+                {showAddRecurring&&(
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:"6px",padding:"12px",marginBottom:"10px",display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"2fr 1fr 70px 130px auto",gap:"8px",alignItems:"end"}}>
+                    <div style={isMobile?{gridColumn:"1/-1"}:{}}><div style={{fontSize:"9px",color:C.muted,marginBottom:"3px"}}>NAME</div><input style={inp} placeholder="Netflix, Rent, Gym..." value={newRecurring.name} onChange={e=>setNewRecurring(p=>({...p,name:e.target.value}))}/></div>
+                    <div><div style={{fontSize:"9px",color:C.muted,marginBottom:"3px"}}>AMOUNT ($)</div><input style={inp} type="number" placeholder="0.00" value={newRecurring.amount} onChange={e=>setNewRecurring(p=>({...p,amount:e.target.value}))}/></div>
+                    <div><div style={{fontSize:"9px",color:C.muted,marginBottom:"3px"}}>DAY</div><input style={inp} type="number" min={1} max={31} placeholder="1" value={newRecurring.dayOfMonth} onChange={e=>setNewRecurring(p=>({...p,dayOfMonth:e.target.value}))}/></div>
+                    <div><div style={{fontSize:"9px",color:C.muted,marginBottom:"3px"}}>CATEGORY</div><select style={inp} value={newRecurring.category} onChange={e=>setNewRecurring(p=>({...p,category:e.target.value}))}>{CATEGORIES.map(c=><option key={c}>{CAT_EMOJI[c]} {c}</option>)}</select></div>
+                    <button style={{...btnS(),alignSelf:"flex-end"}} onClick={addRecurring}>Save</button>
+                  </div>
+                )}
+                {recurringPayments.length===0
+                  ?<div style={{textAlign:"center",color:C.muted,fontSize:"12px",padding:"8px 0"}}>No recurring payments yet — add rent, subscriptions, gym, etc.</div>
+                  :<div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+                    {recurringPayments.map(r=>{
+                      const nextDate=`${NOW_YEAR}-${pad(NOW_MONTH)}-${pad(r.dayOfMonth)}`;
+                      const alreadyLogged=transactions.some(t=>t.fromRecurring&&t.desc===r.name&&t.date===nextDate);
+                      const ord=n=>n===1?"st":n===2?"nd":n===3?"rd":"th";
+                      return(
+                        <div key={r.id} style={{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:C.card,borderRadius:"7px",border:`1px solid ${r.active?C.border:C.border+"44"}`,opacity:r.active?1:0.55}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:"12px",fontWeight:"500"}}>{r.name}</div>
+                            <div style={{fontSize:"10px",color:C.muted}}>Every {r.dayOfMonth}{ord(r.dayOfMonth)} · {CAT_EMOJI[r.category]} {r.category}</div>
+                          </div>
+                          <div style={{fontSize:"13px",fontWeight:"600",color:C.red,flexShrink:0}}>−{fmt(r.amount)}</div>
+                          <button onClick={()=>toggleRecurring(r.id)} style={{background:"none",border:`1px solid ${C.border}`,color:r.active?C.green:C.muted,padding:"3px 8px",borderRadius:"5px",cursor:"pointer",fontSize:"10px",fontFamily:"inherit"}}>{r.active?"ON":"OFF"}</button>
+                          {r.active&&!alreadyLogged&&<button onClick={()=>applyRecurring(r)} style={{...btnS(),fontSize:"10px",padding:"4px 10px"}}>+ Log</button>}
+                          {alreadyLogged&&<span style={{fontSize:"10px",color:C.green,padding:"4px 6px"}}>✓ Logged</span>}
+                          <button onClick={()=>deleteRecurring(r.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:"13px",padding:"2px"}}>🗑️</button>
+                        </div>
+                      );
+                    })}
+                    <div style={{paddingTop:"6px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",fontSize:"11px",color:C.muted}}>
+                      <span>Monthly recurring total</span>
+                      <span style={{color:C.red,fontWeight:"600"}}>−{fmt(recurringPayments.filter(r=>r.active).reduce((s,r)=>s+r.amount,0))}</span>
+                    </div>
+                  </div>
+                }
+              </div>
               {(()=>{
                 const sorted=[...periodTx].sort((a,b)=>b.date.localeCompare(a.date));
                 const months=[...new Set(sorted.map(t=>t.date.slice(0,7)))];
