@@ -263,6 +263,7 @@ export default function App() {
       if(d.goals)        setGoals(d.goals);
       if(d.budgets)      setBudgets(d.budgets);
       if(d.stocks)       setStocks(d.stocks);
+      if(d.recurringPayments) setRecurringPayments(d.recurringPayments);
       setTimeout(()=>{ isRemoteUpdate.current = false; }, 200);
     }, () => setSyncStatus("offline"));
     return ()=>{ if(unsubFirestore.current) unsubFirestore.current(); };
