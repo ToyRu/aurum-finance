@@ -215,6 +215,7 @@ export default function App() {
   const [cardCharges,  setCardCharges]  = useState([]);
   const [goals,        setGoals]        = useState(SAMPLE_GOALS);
   const [budgets,      setBudgets]      = useState(INIT_BUDGETS);
+    const [budgetMode,   setBudgetMode] = useState('$');
   const [stocks,       setStocks]       = useState([
     {id:1,ticker:"AAPL",name:"Apple Inc.",shares:5,avgPrice:170,currentPrice:null,prevPrice:null},
     {id:2,ticker:"NVDA",name:"NVIDIA",shares:2,avgPrice:450,currentPrice:null,prevPrice:null},
@@ -769,6 +770,7 @@ export default function App() {
               {(()=>{ const tb=Object.values(budgets).reduce((s,v)=>s+v,0)*(periodMode==="yearly"?12:1); const ts=Object.keys(budgets).reduce((s,cat)=>s+(expByCat[cat]||0),0); const p=Math.round(ts/tb*100); return(<><Ring pct={p} color={C.gold} size={isMobile?70:86} stroke={8}/><div><div style={{fontSize:isMobile?"22px":"26px",fontWeight:"600",color:p>90?C.red:p>75?"#f0a030":C.green}}>{p}%</div><div style={{fontSize:"11px",color:C.muted}}>of {periodMode==="yearly"?"annual":"monthly"} budget</div><div style={{fontSize:"12px",marginTop:"4px"}}>{fmt(ts)} <span style={{color:C.muted}}>of</span> {fmt(tb)}</div><div style={{fontSize:"11px",color:p>100?C.red:C.green,marginTop:"2px"}}>{p>100?"⚠️ Over budget!":"✅ "+fmt(tb-ts)+" left"}</div></div></>); })()}
             </div>
           </div>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}><span style={{fontSize:"11px",color:C.muted}}>Limit per category</span>span><button onClick={()=>setBudgetMode(m=>m==='$'?'%':'$')} style={{...btn,fontSize:"11px",padding:"3px 10px"}}>{budgetMode==='$'?'% Mode':'$ Mode'}</button>button></div>div>
           <div style={{display:"grid",gridTemplateColumns:`repeat(${cols(2)},1fr)`,gap}}>
             {Object.entries(budgets).map(([cat,limit])=>{ const sp=expByCat[cat]||0,el=limit*(periodMode==="yearly"?12:1),p=sp/el*100,ov=sp>el; return(
               <div key={cat} style={{...box,border:`1px solid ${ov?C.red+"55":C.border}`}}>
@@ -776,7 +778,7 @@ export default function App() {
                   <Ring pct={p} color={C.gold} size={isMobile?50:60} stroke={5}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"3px"}}><span style={{fontSize:"12px",fontWeight:"500"}}>{CAT_EMOJI[cat]} {cat}</span>{ov&&<span style={{fontSize:"9px",color:C.red,background:`${C.red}22`,padding:"1px 5px",borderRadius:"8px"}}>⚠️</span>}</div>
-                    <div style={{display:"flex",gap:"4px",alignItems:"center",marginBottom:"3px"}}><span style={{fontSize:"10px",color:C.muted}}>$</span><input style={{...inp,width:"70px",padding:"3px 6px",fontSize:"12px"}} type="number" value={limit} onChange={e=>setBudgets(p2=>({...p2,[cat]:parseFloat(e.target.value)||0}))}/><span style={{fontSize:"10px",color:C.muted}}>/mo</span></div>
+                    <div style={{display:"flex",gap:"4px",alignItems:"center",marginBottom:"3px"}}>{budgetMode==='$'&&<span style={{fontSize:"10px",color:C.muted}}>$</span>}<input style={{...inp,width:"70px",padding:"3px 6px",fontSize:"12px"}} type="number" value={budgetMode==='$'?limit:(totalIncome>0?Math.round(limit/totalIncome*100):0)} onChange={e=>setBudgets(p2=>({...p2,[cat]:budgetMode==='$'?parseFloat(e.target.value)||0:parseFloat(e.target.value)/100*totalIncome||0}))}/><span style={{fontSize:"10px",color:C.muted}}>{budgetMode==='$'?'/mo':'% of income'}</span></div>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:"10px"}}><span style={{color:C.muted}}>Spent: <span style={{color:ov?C.red:C.text}}>{fmt(sp)}</span></span><span style={{color:ov?C.red:C.green}}>{ov?"−":"+"}{fmt(Math.abs(el-sp))}</span></div>
                   </div>
                 </div>
