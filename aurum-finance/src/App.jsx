@@ -26,7 +26,7 @@ const MONTH_FULL  = ["January","February","March","April","May","June","July","A
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const fmt      = n => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n||0);
-const fmtPct   = n => `${Math.round(n)}%`;
+const fmtPct   = n => `${isNaN(n)||!isFinite(n)?0:Math.round(n)}%`;
 const fmtChg   = n => `${n>=0?"+":""}${fmt(n)}`;
 const fmtPctCh = n => `${n>=0?"+":""}${n.toFixed(2)}%`;
 const todayStr = () => new Date().toISOString().split("T")[0];
